@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <bool name="enableNotification">false</bool>
+    <bool name="enableSiteSettingsShortcut">true</bool>
+    <color name="backgroundColor">#07090E</color>
+    <color name="colorPrimary">#5DD6FF</color>
+    <color name="colorPrimaryDark">#07090E</color>
+    <color name="navigationColor">#07090E</color>
+    <color name="navigationColorDark">#07090E</color>
+    <color name="navigationDividerColor">#07090E</color>
+    <color name="navigationDividerColorDark">#07090E</color>
+    <color name="shortcut_background">#F5F5F5</color>
+    <integer name="splashScreenFadeOutDuration">300</integer>
+    <string name="appName" translatable="false">Pose-Runner TV</string>
+    <string name="assetStatements">
+    [{
+        \"relation\": [\"delegate_permission/common.handle_all_urls\"],
+        \"target\": {
+            \"namespace\": \"web\",
+            \"site\": \"https://pose-tv.156.67.216.187.sslip.io\"
+        }
+    }]
+    
+  </string>
+    <string name="fallbackType" translatable="false">customtabs</string>
+    <string name="fullScopeUrl" translatable="false">https://pose-tv.156.67.216.187.sslip.io/</string>
+    <string name="generatorApp" translatable="false">unknown</string>
+    <string name="hostName" translatable="false">pose-tv.156.67.216.187.sslip.io</string>
+    <string name="launchUrl" translatable="false">https://pose-tv.156.67.216.187.sslip.io/</string>
+    <string name="launcherName" translatable="false">Pose-Runner</string>
+    <string name="orientation" translatable="false">landscape</string>
+    <string name="providerAuthority" translatable="false">com.poserunner.tv.fileprovider</string>
+    <string name="webManifestUrl" translatable="false">https://pose-tv.156.67.216.187.sslip.io/manifest.webmanifest</string>
+</resources>

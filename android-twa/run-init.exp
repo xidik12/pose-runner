@@ -1,0 +1,61 @@
+#!/usr/bin/env expect -f
+# Drive `bubblewrap init` non-interactively by pattern-matching its prompts.
+set timeout 300
+
+set env(JAVA_HOME) "/opt/homebrew/opt/openjdk@17"
+set env(PATH) "$env(JAVA_HOME)/bin:$env(PATH)"
+
+spawn bubblewrap init \
+  --manifest=https://pose-tv.156.67.216.187.sslip.io/manifest.webmanifest \
+  --directory=.
+
+expect {
+  -re "install the JDK.*Y/n" { send -- "N\r"; exp_continue }
+  -re "Path to your existing JDK 17" { send -- "/opt/homebrew/opt/openjdk@17\r"; exp_continue }
+  -re "install the Android SDK.*Y/n" { send -- "Y\r"; exp_continue }
+  -re "Path to your existing Android SDK" { send -- "\r"; exp_continue }
+  -re "Domain being opened in the TWA" { send -- "\r"; exp_continue }
+  -re "URL path" { send -- "\r"; exp_continue }
+  -re "Application name" { send -- "Pose-Runner TV\r"; exp_continue }
+  -re "Short name to be used on the Android launcher" { send -- "Pose-Runner\r"; exp_continue }
+  -re "Launcher name" { send -- "Pose-Runner\r"; exp_continue }
+  -re "App version name" { send -- "1.0.0\r"; exp_continue }
+  -re "App version code" { send -- "1\r"; exp_continue }
+  -re "Display mode" { send -- "\r"; exp_continue }
+  -re "Orientation" { send -- "landscape\r"; exp_continue }
+  -re "Status bar color" { send -- "\r"; exp_continue }
+  -re "Theme color" { send -- "\r"; exp_continue }
+  -re "Background color" { send -- "\r"; exp_continue }
+  -re "splash screen color" { send -- "\r"; exp_continue }
+  -re "Splash image URL" { send -- "\r"; exp_continue }
+  -re "Splash screen icon URL" { send -- "\r"; exp_continue }
+  -re "Icon URL" { send -- "\r"; exp_continue }
+  -re "Maskable icon URL" { send -- "\r"; exp_continue }
+  -re "Monochrome icon URL" { send -- "\r"; exp_continue }
+  -re "Include support.*shortcuts" { send -- "Y\r"; exp_continue }
+  -re "Notification delegation" { send -- "N\r"; exp_continue }
+  -re "Play.*billing" { send -- "N\r"; exp_continue }
+  -re "Request location" { send -- "N\r"; exp_continue }
+  -re "Application id" { send -- "com.poserunner.tv\r"; exp_continue }
+  -re "Package ID" { send -- "com.poserunner.tv\r"; exp_continue }
+  -re "Path of the existing key" { send -- "./android.keystore\r"; exp_continue }
+  -re "Key store location" { send -- "./android.keystore\r"; exp_continue }
+  -re "Key name" { send -- "android\r"; exp_continue }
+  -re "Key alias" { send -- "android\r"; exp_continue }
+  -re "Password for the keystore" { send -- "androidkey\r"; exp_continue }
+  -re "Password for the key" { send -- "androidkey\r"; exp_continue }
+  -re "Key store password" { send -- "androidkey\r"; exp_continue }
+  -re "country" { send -- "KH\r"; exp_continue }
+  -re "first and last name" { send -- "Khidayotullo Salakhitdinov\r"; exp_continue }
+  -re "organizational unit" { send -- "Pose-Runner\r"; exp_continue }
+  -re "organization" { send -- "Pose-Runner\r"; exp_continue }
+  -re "City or Locality" { send -- "Phnom Penh\r"; exp_continue }
+  -re "State or Province" { send -- "Phnom Penh\r"; exp_continue }
+  -re "Country Code" { send -- "KH\r"; exp_continue }
+  -re "(Y/n)" { send -- "Y\r"; exp_continue }
+  -re "(y/N)" { send -- "N\r"; exp_continue }
+  -re "Project generated successfully" { puts "\n>>> SUCCESS"; exit 0 }
+  -re "Error|error" { puts "\n>>> ERROR encountered"; exp_continue }
+  eof { puts "\n>>> EOF"; exit 0 }
+  timeout { puts "\n>>> TIMEOUT after 300s"; exit 1 }
+}

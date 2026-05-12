@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.poserunner.tv",
+    "sha256_cert_fingerprints": [
+      "1E:F3:38:F2:02:FA:F3:1D:7F:17:AE:11:A4:62:45:98:2F:33:38:35:09:7E:15:CF:3A:D0:DE:D2:2E:5D:1D:D5"
+    ]
+  }
+}]
