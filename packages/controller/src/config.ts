@@ -1,13 +1,20 @@
-// Tunable knobs that don't belong in detector internals.
-// All thresholds for the detectors themselves live in detect/index.ts → defaultConfig.
+// Sibling-URL derivation:
+//   pose-ctl.example.com → broker: wss://pose-broker.example.com
+//   localhost            → broker: ws://localhost:8787
+// Override with VITE_BROKER_URL at build time if needed.
 
-export const BROKER_URL = (() => {
-  const env = (import.meta.env as Record<string, string>).VITE_BROKER_URL;
-  if (env) return env;
-  // Default: same host the controller is served from, port 8787, ws (not wss — broker has no TLS in dev)
+const env = (import.meta.env as Record<string, string>);
+
+function brokerDefault(): string {
   const host = location.hostname;
-  return `ws://${host}:8787`;
-})();
+  if (host === 'localhost' || host === '127.0.0.1' || /^\d+\.\d+\.\d+\.\d+$/.test(host)) {
+    return `ws://${host}:8787`;
+  }
+  const replaced = host.replace(/^pose-[a-z]+/, 'pose-broker');
+  return `wss://${replaced}`;
+}
+
+export const BROKER_URL = env.VITE_BROKER_URL || brokerDefault();
 
 export const POSE_MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
