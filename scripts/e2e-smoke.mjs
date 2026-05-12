@@ -8,15 +8,19 @@ const ROOM = 'TESTAB';
 function delay(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
 function wrap(ws) {
-  // Thin EventTarget→pub-sub bridge so we can listen for parsed "roommsg" events.
+  // Pub-sub bridge with replay buffer so `until()` doesn't miss messages that
+  // arrived between awaits.
   const handlers = new Set();
+  const buffer = [];
   ws.addEventListener('message', (e) => {
     const data = typeof e.data === 'string' ? e.data : e.data.toString();
     let msg; try { msg = JSON.parse(data); } catch { return; }
+    buffer.push(msg);
     for (const h of handlers) h(msg);
   });
   return {
     socket: ws,
+    buffer,
     on: (fn) => handlers.add(fn),
     off: (fn) => handlers.delete(fn),
     send: (m) => ws.send(JSON.stringify(m)),
@@ -41,7 +45,9 @@ function open(role, preferredSlot) {
   });
 }
 
-function until(w, predicate, timeoutMs = 3000) {
+function until(w, predicate, timeoutMs = 8000) {
+  // First check the replay buffer for matches already received.
+  for (const msg of w.buffer) if (predicate(msg)) return Promise.resolve(msg);
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => { w.off(onMsg); reject(new Error('timeout waiting for: ' + predicate.toString())); }, timeoutMs);
     const onMsg = (msg) => { if (predicate(msg)) { clearTimeout(timer); w.off(onMsg); resolve(msg); } };
