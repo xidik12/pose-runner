@@ -1,0 +1,112 @@
+{
+  "_comment": "Stance definitions for stance gate detector. Angles in radians (π = ~3.14159). Match StanceDefinition type in shared/src/index.ts. The thresholds favor accessibility — too strict and casual players bounce; too loose and the gate feels meaningless. Tune in playtests, not in code.",
+
+  "_anglesGuide": {
+    "leftElbow":     "shoulder-elbow-wrist (π ≈ straight arm, π/2 ≈ 90° bend)",
+    "rightElbow":    "shoulder-elbow-wrist",
+    "leftShoulder":  "hip-shoulder-elbow (π ≈ arm down, π/2 ≈ arm horizontal, near 0 ≈ arm up)",
+    "rightShoulder": "hip-shoulder-elbow",
+    "leftKnee":      "hip-knee-ankle (π ≈ straight leg, π/2 ≈ deep squat)",
+    "rightKnee":     "hip-knee-ankle",
+    "leftHip":       "shoulder-hip-knee (π ≈ standing, π/2 ≈ leg lifted forward)",
+    "rightHip":      "shoulder-hip-knee",
+    "torsoLean":     "shoulder-mid to hip-mid vs vertical, signed (positive = leaning right)"
+  },
+
+  "stances": [
+    {
+      "id": "t-pose",
+      "name": "T-Pose",
+      "angles": {
+        "leftElbow": 3.14, "rightElbow": 3.14,
+        "leftShoulder": 1.57, "rightShoulder": 1.57,
+        "leftKnee": 3.14, "rightKnee": 3.14,
+        "torsoLean": 0.0
+      },
+      "threshold": 0.94,
+      "holdMs": 400,
+      "silhouetteAsset": "silhouette-tpose"
+    },
+    {
+      "id": "warrior-2",
+      "name": "Warrior II",
+      "angles": {
+        "leftElbow": 3.14, "rightElbow": 3.14,
+        "leftShoulder": 1.57, "rightShoulder": 1.57,
+        "leftKnee": 1.57,
+        "rightKnee": 3.0,
+        "torsoLean": 0.0
+      },
+      "threshold": 0.92,
+      "holdMs": 500,
+      "silhouetteAsset": "silhouette-warrior2"
+    },
+    {
+      "id": "tree-pose",
+      "name": "Tree Pose",
+      "angles": {
+        "leftElbow": 2.7, "rightElbow": 2.7,
+        "leftShoulder": 0.3, "rightShoulder": 0.3,
+        "leftKnee": 3.0,
+        "rightKnee": 1.0,
+        "torsoLean": 0.0
+      },
+      "threshold": 0.90,
+      "holdMs": 600,
+      "silhouetteAsset": "silhouette-tree"
+    },
+    {
+      "id": "downward-dog",
+      "name": "Downward Dog",
+      "angles": {
+        "leftElbow": 3.14, "rightElbow": 3.14,
+        "leftShoulder": 0.3, "rightShoulder": 0.3,
+        "leftKnee": 3.14, "rightKnee": 3.14,
+        "leftHip": 1.4, "rightHip": 1.4,
+        "torsoLean": 1.4
+      },
+      "threshold": 0.90,
+      "holdMs": 700,
+      "silhouetteAsset": "silhouette-down-dog"
+    },
+    {
+      "id": "lotus",
+      "name": "Lotus",
+      "angles": {
+        "leftElbow": 2.6, "rightElbow": 2.6,
+        "leftShoulder": 1.1, "rightShoulder": 1.1,
+        "leftKnee": 1.0, "rightKnee": 1.0,
+        "torsoLean": 0.0
+      },
+      "threshold": 0.92,
+      "holdMs": 600,
+      "silhouetteAsset": "silhouette-lotus"
+    },
+    {
+      "id": "sumo-squat",
+      "name": "Sumo Squat",
+      "angles": {
+        "leftElbow": 1.57, "rightElbow": 1.57,
+        "leftShoulder": 1.0, "rightShoulder": 1.0,
+        "leftKnee": 1.4, "rightKnee": 1.4,
+        "torsoLean": 0.0
+      },
+      "threshold": 0.92,
+      "holdMs": 500,
+      "silhouetteAsset": "silhouette-sumo"
+    },
+    {
+      "id": "fighter-stance",
+      "name": "Fighter Stance",
+      "angles": {
+        "leftElbow": 1.5, "rightElbow": 1.5,
+        "leftShoulder": 1.5, "rightShoulder": 1.3,
+        "leftKnee": 2.7, "rightKnee": 2.7,
+        "torsoLean": 0.15
+      },
+      "threshold": 0.92,
+      "holdMs": 400,
+      "silhouetteAsset": "silhouette-fighter"
+    }
+  ]
+}

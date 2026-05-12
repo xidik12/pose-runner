@@ -1,0 +1,295 @@
+{
+  "_comment": "Drop into packages/backend/seeds/maps.json. Each entry is a complete MapManifest (see shared types). Apply via the seed-maps script, which UPSERTs into public.maps with the manifest JSONB.",
+
+  "maps": [
+    {
+      "id": "phnom-penh-streets",
+      "name": "Phnom Penh Streets",
+      "tagline": "Where it all began",
+      "tier": "free",
+      "length": 180,
+      "difficulty": 1,
+      "emphasis": { "jump": 0.4, "duck": 0.3, "lean": 0.5, "punch": 0.0, "stance": 0.1 },
+      "theme": {
+        "palette": "phnom-penh-streets",
+        "parallaxLayers": [
+          { "assetId": "pp-sky", "speed": 0.15 },
+          { "assetId": "pp-skyline", "speed": 0.4 },
+          { "assetId": "pp-tuktuks", "speed": 0.85 }
+        ],
+        "postProcess": "none",
+        "weather": "none"
+      },
+      "obstaclePatterns": [
+        { "id": "single-jump", "weightAtStart": 1.0, "weightAtEnd": 0.4, "minDifficulty": 1 },
+        { "id": "single-duck", "weightAtStart": 1.0, "weightAtEnd": 0.4, "minDifficulty": 1 },
+        { "id": "lane-shift",  "weightAtStart": 0.8, "weightAtEnd": 0.6, "minDifficulty": 1 },
+        { "id": "jump-coin",   "weightAtStart": 0.5, "weightAtEnd": 0.7, "minDifficulty": 1 },
+        { "id": "duck-jump",   "weightAtStart": 0.0, "weightAtEnd": 0.6, "minDifficulty": 2 }
+      ],
+      "stanceSet": ["t-pose"],
+      "difficultyCurve": [
+        { "t": 0,   "scrollSpeed": 240, "spawnInterval": 1.8 },
+        { "t": 60,  "scrollSpeed": 280, "spawnInterval": 1.6 },
+        { "t": 120, "scrollSpeed": 320, "spawnInterval": 1.4 },
+        { "t": 180, "scrollSpeed": 360, "spawnInterval": 1.2 }
+      ],
+      "music": { "trackId": "khmer-electronic-fusion", "bpm": 110 }
+    },
+
+    {
+      "id": "jungle-ruins",
+      "name": "Jungle Ruins",
+      "tagline": "Stance gates among ancient temples",
+      "tier": "premium",
+      "price": { "usd": 1.99, "productIds": { "apple": "com.poserunner.map.jungle", "google": "map_jungle_ruins" } },
+      "length": 300,
+      "difficulty": 3,
+      "emphasis": { "jump": 0.3, "duck": 0.2, "lean": 0.3, "punch": 0.1, "stance": 0.7 },
+      "theme": {
+        "palette": "jungle-ruins",
+        "parallaxLayers": [
+          { "assetId": "jungle-canopy",   "speed": 0.2 },
+          { "assetId": "jungle-pillars",  "speed": 0.55 },
+          { "assetId": "jungle-vines",    "speed": 0.9 }
+        ],
+        "postProcess": "bloom",
+        "weather": "rain"
+      },
+      "obstaclePatterns": [
+        { "id": "single-jump",     "weightAtStart": 0.8, "weightAtEnd": 0.4, "minDifficulty": 1 },
+        { "id": "single-duck",     "weightAtStart": 0.8, "weightAtEnd": 0.4, "minDifficulty": 1 },
+        { "id": "lane-shift",      "weightAtStart": 0.6, "weightAtEnd": 0.6, "minDifficulty": 1 },
+        { "id": "stance-gate",     "weightAtStart": 0.4, "weightAtEnd": 0.9, "minDifficulty": 2 },
+        { "id": "double-stance",   "weightAtStart": 0.0, "weightAtEnd": 0.5, "minDifficulty": 3 },
+        { "id": "jump-stance",     "weightAtStart": 0.0, "weightAtEnd": 0.4, "minDifficulty": 3 }
+      ],
+      "stanceSet": ["warrior-2", "tree-pose", "t-pose", "sumo-squat"],
+      "difficultyCurve": [
+        { "t": 0,   "scrollSpeed": 260, "spawnInterval": 1.7 },
+        { "t": 100, "scrollSpeed": 310, "spawnInterval": 1.5 },
+        { "t": 200, "scrollSpeed": 360, "spawnInterval": 1.3 },
+        { "t": 300, "scrollSpeed": 410, "spawnInterval": 1.1 }
+      ],
+      "music": { "trackId": "khmer-percussion-jungle", "bpm": 92 }
+    },
+
+    {
+      "id": "neon-tokyo",
+      "name": "Neon Tokyo",
+      "tagline": "Lane-changes at the speed of light",
+      "tier": "premium",
+      "price": { "usd": 1.99, "productIds": { "apple": "com.poserunner.map.tokyo", "google": "map_neon_tokyo" } },
+      "length": 240,
+      "difficulty": 4,
+      "emphasis": { "jump": 0.2, "duck": 0.3, "lean": 0.9, "punch": 0.4, "stance": 0.0 },
+      "theme": {
+        "palette": "neon-tokyo",
+        "parallaxLayers": [
+          { "assetId": "tokyo-stars",     "speed": 0.1 },
+          { "assetId": "tokyo-buildings", "speed": 0.55 },
+          { "assetId": "tokyo-billboards","speed": 1.0 }
+        ],
+        "postProcess": "bloom",
+        "weather": "rain"
+      },
+      "obstaclePatterns": [
+        { "id": "rapid-lane",      "weightAtStart": 1.0, "weightAtEnd": 1.0, "minDifficulty": 2 },
+        { "id": "duck-then-lane",  "weightAtStart": 0.6, "weightAtEnd": 0.9, "minDifficulty": 3 },
+        { "id": "breakable-wall",  "weightAtStart": 0.5, "weightAtEnd": 0.8, "minDifficulty": 3 },
+        { "id": "triple-lane",     "weightAtStart": 0.3, "weightAtEnd": 0.7, "minDifficulty": 4 }
+      ],
+      "stanceSet": [],
+      "difficultyCurve": [
+        { "t": 0,   "scrollSpeed": 320, "spawnInterval": 1.4 },
+        { "t": 80,  "scrollSpeed": 380, "spawnInterval": 1.2 },
+        { "t": 160, "scrollSpeed": 440, "spawnInterval": 1.05 },
+        { "t": 240, "scrollSpeed": 500, "spawnInterval": 0.9 }
+      ],
+      "music": { "trackId": "tokyo-synthwave", "bpm": 128 }
+    },
+
+    {
+      "id": "arctic-sprint",
+      "name": "Arctic Sprint",
+      "tagline": "Slippery slopes, big jumps",
+      "tier": "premium",
+      "price": { "usd": 1.99, "productIds": { "apple": "com.poserunner.map.arctic", "google": "map_arctic_sprint" } },
+      "length": 240,
+      "difficulty": 3,
+      "emphasis": { "jump": 0.9, "duck": 0.3, "lean": 0.4, "punch": 0.0, "stance": 0.1 },
+      "theme": {
+        "palette": "arctic",
+        "parallaxLayers": [
+          { "assetId": "arctic-aurora",   "speed": 0.1 },
+          { "assetId": "arctic-mountains","speed": 0.45 },
+          { "assetId": "arctic-snowdrift","speed": 0.9 }
+        ],
+        "postProcess": "cold",
+        "weather": "snow"
+      },
+      "obstaclePatterns": [
+        { "id": "long-jump",       "weightAtStart": 0.9, "weightAtEnd": 0.7, "minDifficulty": 1 },
+        { "id": "double-jump",     "weightAtStart": 0.4, "weightAtEnd": 0.9, "minDifficulty": 3 },
+        { "id": "ice-slide-lane",  "weightAtStart": 0.5, "weightAtEnd": 0.7, "minDifficulty": 2 },
+        { "id": "duck-jump",       "weightAtStart": 0.3, "weightAtEnd": 0.6, "minDifficulty": 2 }
+      ],
+      "stanceSet": ["t-pose"],
+      "difficultyCurve": [
+        { "t": 0,   "scrollSpeed": 280, "spawnInterval": 1.6 },
+        { "t": 80,  "scrollSpeed": 330, "spawnInterval": 1.4 },
+        { "t": 160, "scrollSpeed": 380, "spawnInterval": 1.2 },
+        { "t": 240, "scrollSpeed": 430, "spawnInterval": 1.0 }
+      ],
+      "music": { "trackId": "arctic-orchestral", "bpm": 105 }
+    },
+
+    {
+      "id": "boxing-gym",
+      "name": "Boxing Gym",
+      "tagline": "Punch the bag, dodge the opponent",
+      "tier": "premium",
+      "price": { "usd": 1.99, "productIds": { "apple": "com.poserunner.map.boxing", "google": "map_boxing_gym" } },
+      "length": 200,
+      "difficulty": 4,
+      "emphasis": { "jump": 0.1, "duck": 0.7, "lean": 0.5, "punch": 1.0, "stance": 0.2 },
+      "theme": {
+        "palette": "boxing-gym",
+        "parallaxLayers": [
+          { "assetId": "gym-far",   "speed": 0.2 },
+          { "assetId": "gym-bags",  "speed": 0.6 },
+          { "assetId": "gym-ropes", "speed": 0.9 }
+        ],
+        "postProcess": "sepia",
+        "weather": "none"
+      },
+      "obstaclePatterns": [
+        { "id": "breakable-bag",      "weightAtStart": 1.0, "weightAtEnd": 1.0, "minDifficulty": 1 },
+        { "id": "duck-jab",           "weightAtStart": 0.7, "weightAtEnd": 0.9, "minDifficulty": 2 },
+        { "id": "duck-hook",          "weightAtStart": 0.5, "weightAtEnd": 0.9, "minDifficulty": 3 },
+        { "id": "punch-combo",        "weightAtStart": 0.4, "weightAtEnd": 0.8, "minDifficulty": 3 },
+        { "id": "stance-fighter",     "weightAtStart": 0.2, "weightAtEnd": 0.4, "minDifficulty": 3 }
+      ],
+      "stanceSet": ["fighter-stance", "t-pose"],
+      "difficultyCurve": [
+        { "t": 0,   "scrollSpeed": 280, "spawnInterval": 1.4 },
+        { "t": 60,  "scrollSpeed": 330, "spawnInterval": 1.2 },
+        { "t": 130, "scrollSpeed": 380, "spawnInterval": 1.05 },
+        { "t": 200, "scrollSpeed": 420, "spawnInterval": 0.95 }
+      ],
+      "music": { "trackId": "boxing-funk", "bpm": 118 }
+    },
+
+    {
+      "id": "yoga-mountain",
+      "name": "Yoga Mountain",
+      "tagline": "Stance-heavy meditative run",
+      "tier": "premium",
+      "price": { "usd": 1.99, "productIds": { "apple": "com.poserunner.map.yoga", "google": "map_yoga_mountain" } },
+      "length": 360,
+      "difficulty": 2,
+      "emphasis": { "jump": 0.1, "duck": 0.1, "lean": 0.3, "punch": 0.0, "stance": 1.0 },
+      "theme": {
+        "palette": "yoga-mountain",
+        "parallaxLayers": [
+          { "assetId": "yoga-clouds",     "speed": 0.1 },
+          { "assetId": "yoga-mountains",  "speed": 0.4 },
+          { "assetId": "yoga-flowers",    "speed": 0.85 }
+        ],
+        "postProcess": "bloom",
+        "weather": "none"
+      },
+      "obstaclePatterns": [
+        { "id": "stance-gate",         "weightAtStart": 1.0, "weightAtEnd": 1.0, "minDifficulty": 1 },
+        { "id": "double-stance",       "weightAtStart": 0.5, "weightAtEnd": 0.8, "minDifficulty": 2 },
+        { "id": "stance-then-lane",    "weightAtStart": 0.4, "weightAtEnd": 0.7, "minDifficulty": 2 },
+        { "id": "long-stance",         "weightAtStart": 0.2, "weightAtEnd": 0.6, "minDifficulty": 3 }
+      ],
+      "stanceSet": ["warrior-2", "tree-pose", "downward-dog", "lotus", "t-pose"],
+      "difficultyCurve": [
+        { "t": 0,   "scrollSpeed": 200, "spawnInterval": 2.4 },
+        { "t": 120, "scrollSpeed": 230, "spawnInterval": 2.1 },
+        { "t": 240, "scrollSpeed": 260, "spawnInterval": 1.9 },
+        { "t": 360, "scrollSpeed": 300, "spawnInterval": 1.7 }
+      ],
+      "music": { "trackId": "yoga-ambient", "bpm": 80 }
+    },
+
+    {
+      "id": "marathon",
+      "name": "Marathon",
+      "tagline": "Earned by playing 7 days in a row",
+      "tier": "earnable",
+      "unlockRules": [
+        { "kind": "streakDays", "days": 7 }
+      ],
+      "length": 600,
+      "difficulty": 5,
+      "emphasis": { "jump": 0.5, "duck": 0.5, "lean": 0.6, "punch": 0.4, "stance": 0.4 },
+      "theme": {
+        "palette": "marathon-mixed",
+        "parallaxLayers": [
+          { "assetId": "marathon-far",  "speed": 0.15 },
+          { "assetId": "marathon-mid",  "speed": 0.5 },
+          { "assetId": "marathon-near", "speed": 0.9 }
+        ],
+        "postProcess": "none",
+        "weather": "none"
+      },
+      "obstaclePatterns": [
+        { "id": "single-jump",     "weightAtStart": 0.8, "weightAtEnd": 0.6, "minDifficulty": 1 },
+        { "id": "single-duck",     "weightAtStart": 0.8, "weightAtEnd": 0.6, "minDifficulty": 1 },
+        { "id": "lane-shift",      "weightAtStart": 0.7, "weightAtEnd": 0.7, "minDifficulty": 1 },
+        { "id": "stance-gate",     "weightAtStart": 0.4, "weightAtEnd": 0.7, "minDifficulty": 2 },
+        { "id": "breakable-wall",  "weightAtStart": 0.4, "weightAtEnd": 0.7, "minDifficulty": 2 },
+        { "id": "triple-combo",    "weightAtStart": 0.2, "weightAtEnd": 0.8, "minDifficulty": 4 }
+      ],
+      "stanceSet": ["warrior-2", "tree-pose", "fighter-stance", "t-pose"],
+      "difficultyCurve": [
+        { "t": 0,   "scrollSpeed": 240, "spawnInterval": 1.8 },
+        { "t": 200, "scrollSpeed": 320, "spawnInterval": 1.4 },
+        { "t": 400, "scrollSpeed": 400, "spawnInterval": 1.1 },
+        { "t": 600, "scrollSpeed": 480, "spawnInterval": 0.9 }
+      ],
+      "music": { "trackId": "marathon-evolving", "bpm": 100 }
+    },
+
+    {
+      "id": "champions-run",
+      "name": "Champion's Run",
+      "tagline": "Won at weekly tournaments",
+      "tier": "earnable",
+      "unlockRules": [
+        { "kind": "tournamentWin", "tournamentId": "weekly-*" }
+      ],
+      "length": 240,
+      "difficulty": 5,
+      "emphasis": { "jump": 0.8, "duck": 0.8, "lean": 0.8, "punch": 0.7, "stance": 0.6 },
+      "theme": {
+        "palette": "arena",
+        "parallaxLayers": [
+          { "assetId": "arena-crowd-far",  "speed": 0.2 },
+          { "assetId": "arena-pillars",    "speed": 0.6 },
+          { "assetId": "arena-confetti",   "speed": 1.0 }
+        ],
+        "postProcess": "bloom",
+        "weather": "none"
+      },
+      "obstaclePatterns": [
+        { "id": "triple-combo",    "weightAtStart": 0.6, "weightAtEnd": 1.0, "minDifficulty": 4 },
+        { "id": "duck-jump",       "weightAtStart": 0.6, "weightAtEnd": 0.9, "minDifficulty": 2 },
+        { "id": "stance-gate",     "weightAtStart": 0.5, "weightAtEnd": 0.7, "minDifficulty": 2 },
+        { "id": "rapid-lane",      "weightAtStart": 0.7, "weightAtEnd": 0.9, "minDifficulty": 3 },
+        { "id": "punch-combo",     "weightAtStart": 0.5, "weightAtEnd": 0.8, "minDifficulty": 3 }
+      ],
+      "stanceSet": ["warrior-2", "fighter-stance", "tree-pose", "t-pose"],
+      "difficultyCurve": [
+        { "t": 0,   "scrollSpeed": 360, "spawnInterval": 1.2 },
+        { "t": 80,  "scrollSpeed": 420, "spawnInterval": 1.0 },
+        { "t": 160, "scrollSpeed": 480, "spawnInterval": 0.9 },
+        { "t": 240, "scrollSpeed": 540, "spawnInterval": 0.8 }
+      ],
+      "music": { "trackId": "champions-anthem", "bpm": 140 }
+    }
+  ]
+}

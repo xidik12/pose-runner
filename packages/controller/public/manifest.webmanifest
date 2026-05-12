@@ -1,0 +1,10 @@
+{
+  "name": "Pose-Runner Controller",
+  "short_name": "PoseCtrl",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0d14",
+  "theme_color": "#0a0d14",
+  "icons": []
+}
