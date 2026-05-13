@@ -43,8 +43,11 @@ export interface RunSceneInit {
 // ---------------------------------------------------------------------------
 
 const LANE_COUNT = 3;
-const LANE_WIDTH = 220;
-const PLAYER_GROUND_Y = 0.78; // fraction of viewport height
+const LANE_WIDTH_FAR = 14;       // half-width of one lane at the horizon
+const LANE_WIDTH_NEAR = 220;     // half-width of one lane at the player
+const HORIZON_Y_FRAC = 0.42;     // fraction of viewport height for the horizon
+const PLAYER_GROUND_Y = 0.82;    // fraction of viewport height for the player
+const PERSPECTIVE_EXP = 1.7;     // higher = more aggressive depth foreshortening
 const JUMP_HEIGHT_PX = 180;
 const JUMP_DURATION_MS = 600;
 const DUCK_DURATION_MS = 500;
@@ -108,9 +111,12 @@ export class RunScene extends Phaser.Scene {
 
   // visuals
   private parallaxLayers: Phaser.GameObjects.TileSprite[] = [];
+  private groundGfx!: Phaser.GameObjects.Graphics;   // perspective lanes + scrolling stripes
   private playerSprite!: Phaser.GameObjects.Sprite;
+  private playerShadow!: Phaser.GameObjects.Ellipse;
   private scoreText!: Phaser.GameObjects.Text;
   private camera!: Phaser.Cameras.Scene2D.Camera;
+  private stripePhase = 0;
 
   // logic
   private pState!: PlayerState;
@@ -155,17 +161,26 @@ export class RunScene extends Phaser.Scene {
     this.camera.setViewport(this.viewport.x, this.viewport.y, this.viewport.w, this.viewport.h);
     this.camera.setBackgroundColor('#101218');
 
-    // Parallax: each layer is a TileSprite scrolling at a different speed
-    for (const layer of this.manifest.theme.parallaxLayers) {
-      const ts = this.add.tileSprite(0, 0, this.viewport.w, this.viewport.h, layer.assetId);
+    // Parallax: only the SKY layers scroll horizontally to suggest scenery drift.
+    // Anything below the horizon is replaced with our perspective lanes.
+    const skyOnly = this.manifest.theme.parallaxLayers.slice(0, 2);
+    for (const layer of skyOnly) {
+      const ts = this.add.tileSprite(0, 0, this.viewport.w, this.viewport.h * HORIZON_Y_FRAC, layer.assetId);
       ts.setOrigin(0, 0);
       ts.setData('speed', layer.speed);
+      ts.setDepth(0);
       this.parallaxLayers.push(ts);
     }
 
-    // Player
+    // Ground gradient + perspective lanes (drawn each frame)
+    this.groundGfx = this.add.graphics();
+    this.groundGfx.setDepth(5);
+
+    // Player + soft shadow
     const playerX = this.laneToX(this.pState.lane);
     const playerY = this.viewport.h * PLAYER_GROUND_Y;
+    this.playerShadow = this.add.ellipse(playerX, playerY + 18, 80, 18, 0x000000, 0.45);
+    this.playerShadow.setDepth(40);
     this.playerSprite = this.add.sprite(playerX, playerY, 'player', 'run-0');
     this.playerSprite.setDepth(50);
 
@@ -223,14 +238,19 @@ export class RunScene extends Phaser.Scene {
       this.pState.isInvulnerable = false;
     }
 
-    // 3. Update parallax
+    // 3. Update parallax (sky drift) + lane stripes (forward depth)
     const cur = this.curve(this.timeMs / 1000);
     for (const layer of this.parallaxLayers) {
-      layer.tilePositionX += cur.scrollSpeed * (layer.getData('speed') as number) * (deltaMs / 1000);
+      layer.tilePositionX += cur.scrollSpeed * (layer.getData('speed') as number) * (deltaMs / 1000) * 0.3;
     }
+    this.stripePhase = (this.stripePhase + cur.scrollSpeed * (deltaMs / 1000) / 600) % 1;
+    this.drawGround();
 
     // 4. Update obstacles
     this.tickObstacles(cur.scrollSpeed, deltaMs);
+
+    // Keep shadow under the player on lane change
+    this.playerShadow.x = this.playerSprite.x;
 
     // 5. Spawning
     this.spawnAccumMs += deltaMs;
@@ -502,15 +522,90 @@ export class RunScene extends Phaser.Scene {
   }
 
   private positionObstacle(ob: Obstacle) {
-    // Map z ∈ [0, 1] to screen y; obstacles grow as they approach
-    const yTop = this.viewport.h * 0.45;       // horizon
+    // True perspective: both X and Y interpolate from a horizon vanishing point.
+    const yTop = this.viewport.h * HORIZON_Y_FRAC;
     const yBot = this.viewport.h * PLAYER_GROUND_Y;
-    const y = yTop + (yBot - yTop) * Math.pow(ob.z, 1.6);
-    const scale = 0.35 + 0.95 * ob.z;
-    const x = ob.lane === 'all' ? this.viewport.w / 2 : this.laneToX(ob.lane);
+    const t = Math.pow(ob.z, PERSPECTIVE_EXP);
+    const y = yTop + (yBot - yTop) * t;
+
+    const cx = this.viewport.w / 2;
+    const targetX = ob.lane === 'all' ? cx : this.laneToX(ob.lane);
+    const x = cx + (targetX - cx) * t;
+
+    const scale = 0.08 + 0.92 * t;
     ob.sprite.setPosition(x, y);
     ob.sprite.setScale(scale);
     ob.sprite.setDepth(20 + ob.z * 30);
+  }
+
+  private drawGround() {
+    const g = this.groundGfx;
+    const w = this.viewport.w, h = this.viewport.h;
+    const cx = w / 2;
+    const yTop = h * HORIZON_Y_FRAC;
+    const yBot = h * (PLAYER_GROUND_Y + 0.04);
+    g.clear();
+
+    // 1) Ground fill — vertical gradient from horizon down via a stack of rects
+    const STEPS = 28;
+    for (let i = 0; i < STEPS; i++) {
+      const t0 = i / STEPS;
+      const t1 = (i + 1) / STEPS;
+      const y0 = yTop + (yBot - yTop) * t0;
+      const y1 = yTop + (yBot - yTop) * t1;
+      // Lerp dark→slightly-lighter as we approach the player
+      const shade = Math.round(0x12 + 0x1c * t0);
+      const color = (shade << 16) | ((shade + 4) << 8) | (shade + 10);
+      g.fillStyle(color, 1);
+      g.fillRect(0, y0, w, y1 - y0 + 1);
+    }
+
+    // 2) Lane boundaries — 4 perspective lines for 3 lanes (far edges converge at cx,yTop)
+    const farHalf = LANE_WIDTH_FAR * 1.5;
+    const nearHalf = LANE_WIDTH_NEAR * 1.5;
+    g.lineStyle(2, 0x3a4b6a, 0.85);
+    for (let i = -1.5; i <= 1.5; i += 1) {
+      const xNear = cx + i * LANE_WIDTH_NEAR;
+      const xFar = cx + (i / 1.5) * farHalf;
+      g.beginPath();
+      g.moveTo(xFar, yTop);
+      g.lineTo(xNear, yBot);
+      g.strokePath();
+    }
+
+    // 3) Scrolling lane stripes — dashed segments racing toward the player along
+    //    each of the two inner lane boundaries.
+    const STRIPE_COUNT = 12;
+    g.lineStyle(4, 0xffd24a, 0.9);
+    for (const innerIdx of [-0.5, 0.5]) {
+      for (let s = 0; s < STRIPE_COUNT; s++) {
+        // dash phase scrolls 0..1; convert to z position with perspective
+        let segT = (s / STRIPE_COUNT + this.stripePhase) % 1;
+        // ease so stripes appear evenly spaced in WORLD space (not screen)
+        segT = Math.pow(segT, 1 / PERSPECTIVE_EXP);
+
+        const segT2 = Math.min(1, segT + 0.5 / STRIPE_COUNT);
+        const lerp = (t: number) => yTop + (yBot - yTop) * Math.pow(t, PERSPECTIVE_EXP);
+        const y0 = lerp(segT);
+        const y1 = lerp(segT2);
+        const lerpX = (t: number) =>
+          cx + (cx + innerIdx * LANE_WIDTH_NEAR - cx) * Math.pow(t, PERSPECTIVE_EXP);
+        const x0 = lerpX(segT);
+        const x1 = lerpX(segT2);
+        g.beginPath();
+        g.moveTo(x0, y0);
+        g.lineTo(x1, y1);
+        g.strokePath();
+      }
+    }
+
+    // 4) Horizon glow
+    const glow = g.fillGradientStyle
+      ? null
+      : null;
+    void glow;
+    g.fillStyle(0x5dd6ff, 0.18);
+    g.fillRect(0, yTop - 2, w, 3);
   }
 
   private deactivate(ob: Obstacle) {
@@ -525,7 +620,7 @@ export class RunScene extends Phaser.Scene {
 
   private laneToX(lane: 0 | 1 | 2): number {
     const cx = this.viewport.w / 2;
-    return cx + (lane - 1) * LANE_WIDTH;
+    return cx + (lane - 1) * LANE_WIDTH_NEAR;
   }
 
   private randomLane(): 0 | 1 | 2 {
