@@ -16,6 +16,19 @@
 
 /// <reference lib="webworker" />
 
+// MediaPipe's Emscripten glue references `document.currentScript` and
+// `document.head` to compute base URLs. Workers have no DOM, so this throws
+// "Can't find variable: document" on Safari and some Chrome versions.
+// Minimal shim — values don't matter, MediaPipe falls back to other paths.
+if (typeof (globalThis as { document?: unknown }).document === 'undefined') {
+  (globalThis as unknown as { document: unknown }).document = {
+    createElement: () => ({ setAttribute() {}, set src(_v: string) {}, addEventListener() {} }),
+    head: { appendChild() {} },
+    currentScript: { src: (self as unknown as { location: Location }).location.href },
+    location: (self as unknown as { location: Location }).location,
+  };
+}
+
 import {
   PoseLandmarker,
   FilesetResolver,
