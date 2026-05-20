@@ -7,15 +7,19 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Bungee&display=swap" rel="stylesheet" />
     <title>Pose-Runner TV</title>
     <style>
       :root { color-scheme: dark; }
-      html, body { margin: 0; padding: 0; height: 100%; background: #07090e; color: #e8eaf0; font-family: system-ui, sans-serif; overflow: hidden; }
-      #game { position: fixed; inset: 0; }
+      html, body { margin: 0; padding: 0; height: 100%; background: #07090e; color: #e8eaf0; font-family: system-ui, -apple-system, sans-serif; overflow: hidden; }
+      #ui-root { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+      #ui-root > * { pointer-events: auto; }
     </style>
   </head>
   <body>
-    <div id="game"></div>
+    <div id="ui-root"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -1,19 +1,12 @@
-import Phaser from 'phaser';
-import { BootScene } from './scenes/BootScene';
-import { PairingScene } from './scenes/PairingScene';
-import { GameScene } from './scenes/GameScene';
-import { GameOverScene } from './scenes/GameOverScene';
+// TV entry — instantiates Game (which owns renderer, broker, UI overlays).
+import { Game } from './engine/Game';
 
-new Phaser.Game({
-  type: Phaser.AUTO,
-  parent: 'game',
-  backgroundColor: '#07090e',
-  scale: {
-    mode: Phaser.Scale.RESIZE,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
-    width: window.innerWidth,
-    height: window.innerHeight,
-  },
-  scene: [BootScene, PairingScene, GameScene, GameOverScene],
-  render: { pixelArt: false, antialias: true },
+new Game();
+
+// Surface unhandled errors to the user clearly so issues don't disappear silently
+window.addEventListener('error', (e) => {
+  console.error('[tv] unhandled error', e.error || e.message);
+});
+window.addEventListener('unhandledrejection', (e) => {
+  console.error('[tv] unhandled promise rejection', e.reason);
 });

@@ -130,7 +130,7 @@ export class CalibrationCapture {
   private samples: PoseSnapshot[] = [];
 
   push(snap: PoseSnapshot): boolean {
-    if (snap.avgVisibility < 0.5) return false; // ignore bad frames
+    if (snap.avgVisibility < 0.4) return false; // ignore bad frames
     this.samples.push(snap);
     return this.samples.length >= CALIB_FRAMES;
   }
@@ -146,6 +146,11 @@ export class CalibrationCapture {
     const shoulderMidX: number[] = [];
     const armLen: number[] = [];
     const shoulderW: number[] = [];
+    // Image-space (where vertical body motion actually shows up)
+    const iHipY: number[] = [];
+    const iHeadY: number[] = [];
+    const iShoulderMidX: number[] = [];
+    const iShoulderW: number[] = [];
 
     for (const s of this.samples) {
       const lh = s.landmarks[PoseIdx.LEFT_HIP];
@@ -161,6 +166,16 @@ export class CalibrationCapture {
       shoulderMidX.push((ls.x + rs.x) / 2);
       armLen.push((dist(ls, lw) + dist(rs, rw)) / 2);
       shoulderW.push(Math.abs(ls.x - rs.x));
+
+      const ilh = s.imageLandmarks[PoseIdx.LEFT_HIP];
+      const irh = s.imageLandmarks[PoseIdx.RIGHT_HIP];
+      const ils = s.imageLandmarks[PoseIdx.LEFT_SHOULDER];
+      const irs = s.imageLandmarks[PoseIdx.RIGHT_SHOULDER];
+      const inose = s.imageLandmarks[PoseIdx.NOSE];
+      iHipY.push((ilh.y + irh.y) / 2);
+      iHeadY.push(inose.y);
+      iShoulderMidX.push((ils.x + irs.x) / 2);
+      iShoulderW.push(Math.abs(ils.x - irs.x));
     }
 
     const median = (xs: number[]) =>
@@ -176,8 +191,12 @@ export class CalibrationCapture {
       shoulderMidX0: median(shoulderMidX),
       armLength0,
       shoulderWidth0,
-      bodyScale: armLength0, // proxy for body size, used to scale thresholds
+      bodyScale: armLength0,
       capturedAt: Date.now(),
+      imageHipY0: median(iHipY),
+      imageHeadY0: median(iHeadY),
+      imageShoulderMidX0: median(iShoulderMidX),
+      imageShoulderWidth0: median(iShoulderW),
     };
   }
 }
@@ -203,11 +222,14 @@ export interface DetectorConfig {
 }
 
 export const defaultConfig: DetectorConfig = {
-  jump:   { riseM: 0.15, windowMs: 250, cooldownMs: 600, minAnkleVis: 0.5 },
-  duck:   { dropM: 0.15, cooldownMs: 600, requireHeadDrop: true },
-  lean:   { enterM: 0.10, exitM: 0.05 },
-  punch:  { peakVelMs: -2.0, reachRatio: 0.85, cooldownMs: 400, maxTorsoFwdM: 0.05 },
-  stance: { defaultThreshold: 0.92, defaultHoldMs: 500 },
+  // Image-space thresholds. The detectors multiply these by
+  // baseline.imageShoulderWidth0 * 1.5 so values are RELATIVE to body span.
+  // Example: at imageShoulderWidth0 = 0.15 (typical), threshold for jump becomes 0.15 * 1.5 * 0.4 = 0.09 image-y units.
+  jump:   { riseM: 0.40, windowMs: 250, cooldownMs: 500, minAnkleVis: 0.2 },
+  duck:   { dropM: 0.40, cooldownMs: 500, requireHeadDrop: false },
+  lean:   { enterM: 0.40, exitM: 0.20 },
+  punch:  { peakVelMs: -1.5, reachRatio: 0.70, cooldownMs: 350, maxTorsoFwdM: 0.08 },
+  stance: { defaultThreshold: 0.90, defaultHoldMs: 400 },
   referenceArmLengthM: 0.55,
 };
 
@@ -250,9 +272,14 @@ function shoulderMid(s: PoseSnapshot): V3 {
 export interface DetectorState {
   lastFireMs: Partial<Record<ActionType, number>>;
   leanSide: 'left' | 'right' | 'center';
-  punchSide: { left: number; right: number }; // last fire timestamps
-  /** stance hold tracking: stanceId → first match timestamp */
+  punchSide: { left: number; right: number };
   stanceHoldStart: Map<string, number>;
+  duckSinceMs: number;
+  /** Smoothed run confidence 0..1; updated every frame, sent at 5 Hz. */
+  runConfidence: number;
+  /** ms timestamps of recent knee-lift detections (for cadence calc). */
+  recentLeftLifts: number[];
+  recentRightLifts: number[];
 }
 
 export function newDetectorState(): DetectorState {
@@ -261,6 +288,10 @@ export function newDetectorState(): DetectorState {
     leanSide: 'center',
     punchSide: { left: 0, right: 0 },
     stanceHoldStart: new Map(),
+    duckSinceMs: 0,
+    runConfidence: 0,
+    recentLeftLifts: [],
+    recentRightLifts: [],
   };
 }
 
@@ -269,6 +300,12 @@ export function newDetectorState(): DetectorState {
 // All return ActionEvent | null. Pure-ish: read-only baseline/cfg, mutate state.
 // =============================================================================
 
+/**
+ * JUMP — image-space. Hip moves UP in frame (image y decreases) when the
+ * player jumps. Either: (a) absolute rise crosses threshold, or
+ * (b) rapid upward velocity over 2 frames (catches the launch even before
+ * the peak crosses the rise threshold).
+ */
 export function detectJump(
   buf: RingBuffer<PoseSnapshot>,
   baseline: Baseline,
@@ -279,33 +316,40 @@ export function detectJump(
   const last = state.lastFireMs.JUMP ?? 0;
   if (now - last < cfg.jump.cooldownMs) return null;
 
-  const window = buf.range(8); // ~250 ms at 30fps
-  if (window.length < 4) return null;
+  const window = buf.range(8);
+  if (window.length < 3) return null;
 
+  const minImgHipY = Math.min(...window.map((s) => imgHipMidY(s)));
+  // Loose threshold: ~5% of frame height for a typical body (shoulderW ≈ 0.15)
+  const threshold = Math.max(0.04, cfg.jump.riseM * baseline.imageShoulderWidth0 * 1.5);
+  const rise = baseline.imageHipY0 - minImgHipY;  // positive = jumped up
+
+  // Velocity check: did hip rise rapidly between the oldest and newest frames?
+  // Firing on launch velocity beats waiting for the peak — kills the perceived lag.
+  const oldest = window[0];
   const newest = window[window.length - 1];
-  const ankleVis = Math.max(
-    newest.landmarks[PoseIdx.LEFT_ANKLE].visibility,
-    newest.landmarks[PoseIdx.RIGHT_ANKLE].visibility,
-  );
-  if (ankleVis < cfg.jump.minAnkleVis) return null;
+  const dy = imgHipMidY(oldest) - imgHipMidY(newest);  // positive = went UP
+  const dt = (newest.timestamp - oldest.timestamp) / 1000;
+  const velUp = dt > 0 ? dy / dt : 0;  // image-y / sec
+  const fastUp = velUp > 0.20;          // ~6cm rise over 8 frames at 30fps
 
-  // y-up convention: rising = increasing y
-  const maxHipY = Math.max(...window.map((s) => hipMid(s).y));
-  const rise = maxHipY - baseline.hipY0;
-  const threshold = scale(cfg, baseline, cfg.jump.riseM);
-
-  if (rise > threshold) {
+  if (rise > threshold || (fastUp && rise > threshold * 0.3)) {
     state.lastFireMs.JUMP = now;
     return {
       type: 'JUMP',
       timestamp: now,
       confidence: Math.min(1, rise / (threshold * 2)),
-      meta: { rise: round(rise, 3) },
+      meta: { rise: round(rise, 3), thr: round(threshold, 3), velUp: round(velUp, 2) },
     };
   }
   return null;
 }
 
+/**
+ * DUCK — image-space. Requires the player to *currently* be below baseline
+ * (not just dipped briefly during a jump-prep). This kills the false-DUCK
+ * that fires during the load-spring phase of a jump.
+ */
 export function detectDuck(
   buf: RingBuffer<PoseSnapshot>,
   baseline: Baseline,
@@ -316,31 +360,59 @@ export function detectDuck(
   const last = state.lastFireMs.DUCK ?? 0;
   if (now - last < cfg.duck.cooldownMs) return null;
 
-  const window = buf.range(8);
-  if (window.length < 4) return null;
+  const window = buf.range(6);
+  if (window.length < 3) return null;
 
-  const minHipY = Math.min(...window.map((s) => hipMid(s).y));
-  const drop = baseline.hipY0 - minHipY;
-  const threshold = scale(cfg, baseline, cfg.duck.dropM);
+  const newest = window[window.length - 1];
+  const threshold = cfg.duck.dropM * baseline.imageShoulderWidth0 * 1.5;
 
-  if (drop > threshold) {
-    if (cfg.duck.requireHeadDrop) {
-      const minHeadY = Math.min(...window.map((s) => s.landmarks[PoseIdx.NOSE].y));
-      const headDrop = baseline.headY0 - minHeadY;
-      if (headDrop < threshold * 0.6) return null;
-    }
-    state.lastFireMs.DUCK = now;
-    return {
-      type: 'DUCK',
-      timestamp: now,
-      confidence: Math.min(1, drop / (threshold * 2)),
-      meta: { drop: round(drop, 3) },
-    };
+  const currentDrop = imgHipMidY(newest) - baseline.imageHipY0;
+
+  // Not crouched right now → reset the hold timer.
+  if (currentDrop <= threshold) {
+    state.duckSinceMs = 0;
+    return null;
   }
-  return null;
+  // Currently below threshold; start (or continue) tracking how long.
+  if (state.duckSinceMs === 0) state.duckSinceMs = now;
+  const heldMs = now - state.duckSinceMs;
+  // Real duck = sustained crouch. Jump-prep crouches are ~150ms; require 220ms.
+  if (heldMs < 220) return null;
+
+  // Suppress if we're rapidly rising (jump in progress, just measuring late)
+  const oldest = window[0];
+  const trend = imgHipMidY(newest) - imgHipMidY(oldest);
+  if (trend < -0.01) return null;
+
+  if (cfg.duck.requireHeadDrop) {
+    const headDrop = newest.imageLandmarks[PoseIdx.NOSE].y - baseline.imageHeadY0;
+    if (headDrop < threshold * 0.5) return null;
+  }
+  state.lastFireMs.DUCK = now;
+  state.duckSinceMs = 0; // reset so we don't fire continuously
+  return {
+    type: 'DUCK',
+    timestamp: now,
+    confidence: Math.min(1, currentDrop / (threshold * 2)),
+    meta: { drop: round(currentDrop, 3), thr: round(threshold, 3), heldMs: heldMs },
+  };
 }
 
-/** Lane changes use hysteresis: emit on edge transitions only. */
+function imgHipMidY(s: PoseSnapshot): number {
+  const lh = s.imageLandmarks[PoseIdx.LEFT_HIP];
+  const rh = s.imageLandmarks[PoseIdx.RIGHT_HIP];
+  return (lh.y + rh.y) / 2;
+}
+
+function imgShoulderMidX(s: PoseSnapshot): number {
+  const ls = s.imageLandmarks[PoseIdx.LEFT_SHOULDER];
+  const rs = s.imageLandmarks[PoseIdx.RIGHT_SHOULDER];
+  return (ls.x + rs.x) / 2;
+}
+
+/** Lane changes use hysteresis: emit on edge transitions only.
+ *  Image-space, INVERTED for back-camera (camera faces player so left/right
+ *  are mirrored relative to the player's perspective). */
 export function detectLean(
   buf: RingBuffer<PoseSnapshot>,
   baseline: Baseline,
@@ -351,9 +423,10 @@ export function detectLean(
   const newest = buf.at(0);
   if (!newest) return null;
 
-  const offset = shoulderMid(newest).x - baseline.shoulderMidX0;
-  const enter = scale(cfg, baseline, cfg.lean.enterM);
-  const exit = scale(cfg, baseline, cfg.lean.exitM);
+  // Negate so player-perspective LEFT lean (camera-perspective right shift) → LEAN_LEFT.
+  const offset = -(imgShoulderMidX(newest) - baseline.imageShoulderMidX0);
+  const enter = cfg.lean.enterM * baseline.imageShoulderWidth0 * 1.5;
+  const exit = cfg.lean.exitM * baseline.imageShoulderWidth0 * 1.5;
 
   let next: 'left' | 'right' | 'center' = state.leanSide;
   if (state.leanSide === 'center') {
@@ -508,32 +581,26 @@ function torsoLeanAngle(s: PoseSnapshot): number {
 
 export interface DetectorPipeline {
   buffer: RingBuffer<PoseSnapshot>;
-  smoother: PoseSmoother;
   state: DetectorState;
   baseline: Baseline | null;
   config: DetectorConfig;
-  stances: StanceDefinition[];
 }
 
-export function newPipeline(stances: StanceDefinition[]): DetectorPipeline {
+export function newPipeline(): DetectorPipeline {
   return {
     buffer: new RingBuffer<PoseSnapshot>(30),
-    smoother: new PoseSmoother(),
     state: newDetectorState(),
     baseline: null,
     config: defaultConfig,
-    stances,
   };
 }
 
 /** Returns all events fired this frame. Empty array is normal. */
 export function tick(pipe: DetectorPipeline, raw: PoseSnapshot): ActionEvent[] {
-  // Smooth landmarks (world + image both, but we only buffer world)
-  const smoothed: PoseSnapshot = {
-    ...raw,
-    landmarks: pipe.smoother.smooth(raw.landmarks, raw.timestamp),
-  };
-  pipe.buffer.push(smoothed);
+  // Image landmarks are used for all current detectors (jump/duck/lean use
+  // image space; punch uses world wrist Z which is fine). Smoother removed as
+  // dead code — it was running on world landmarks that are no longer read.
+  pipe.buffer.push(raw);
 
   if (!pipe.baseline) return [];
 
@@ -541,14 +608,115 @@ export function tick(pipe: DetectorPipeline, raw: PoseSnapshot): ActionEvent[] {
   const now = raw.timestamp;
   const push = (e: ActionEvent | null) => { if (e) events.push(e); };
 
-  push(detectJump(pipe.buffer, pipe.baseline, pipe.state, pipe.config, now));
-  push(detectDuck(pipe.buffer, pipe.baseline, pipe.state, pipe.config, now));
-  push(detectLean(pipe.buffer, pipe.baseline, pipe.state, pipe.config, now));
-  push(detectPunch(pipe.buffer, pipe.baseline, pipe.state, pipe.config, now, 'left'));
-  push(detectPunch(pipe.buffer, pipe.baseline, pipe.state, pipe.config, now, 'right'));
-  push(detectStance(smoothed, pipe.state, pipe.stances, now));
+  // Run-in-place — updates state.runConfidence every frame; emit at 5 Hz.
+  updateRunConfidence(pipe.buffer, pipe.baseline, pipe.state, now);
+  const runEv = maybeEmitRun(pipe.state, now);
+  push(runEv);
 
+  // While running, jump/duck thresholds tighten so the natural running bob
+  // doesn't false-trigger.
+  const isRunning = pipe.state.runConfidence > 0.4;
+  const cfgEffective: DetectorConfig = isRunning
+    ? {
+        ...pipe.config,
+        jump: { ...pipe.config.jump, riseM: pipe.config.jump.riseM * 1.6 },
+        duck: { ...pipe.config.duck, dropM: pipe.config.duck.dropM * 1.4 },
+      }
+    : pipe.config;
+
+  // Jump first; if it fires, suppress DUCK this frame (prep-crouch ambiguity).
+  const jump = detectJump(pipe.buffer, pipe.baseline, pipe.state, cfgEffective, now);
+  push(jump);
+  if (!jump) push(detectDuck(pipe.buffer, pipe.baseline, pipe.state, cfgEffective, now));
+  push(detectLean(pipe.buffer, pipe.baseline, pipe.state, cfgEffective, now));
+  push(detectPunch(pipe.buffer, pipe.baseline, pipe.state, cfgEffective, now, 'left'));
+  push(detectPunch(pipe.buffer, pipe.baseline, pipe.state, cfgEffective, now, 'right'));
   return events;
+}
+
+// =============================================================================
+// SECTION 7b — RUN-in-place detection
+// =============================================================================
+//
+// Method: track the y-position of left + right knees in image space. When a
+// knee is "lifted" (image y noticeably below its rolling baseline), record a
+// timestamp. A walking/running cadence is alternating left/right lifts within
+// a window. Confidence = clamp(lifts_per_sec / 3.0, 0, 1).
+
+const RUN_LIFT_THRESHOLD_FACTOR = 0.04; // image-y units of knee-lift to count
+const RUN_WINDOW_MS = 1500;             // observation window
+const RUN_CONFIDENCE_DECAY = 0.85;      // exponential decay per frame when not running
+const RUN_EMIT_INTERVAL_MS = 200;       // 5 Hz max emit rate
+
+function updateRunConfidence(
+  buf: RingBuffer<PoseSnapshot>,
+  baseline: Baseline,
+  state: DetectorState,
+  now: number,
+) {
+  const newest = buf.at(0);
+  if (!newest) return;
+  // Need a few frames of history
+  const prev = buf.at(3);
+  if (!prev) return;
+
+  const lknee = newest.imageLandmarks[PoseIdx.LEFT_KNEE];
+  const rknee = newest.imageLandmarks[PoseIdx.RIGHT_KNEE];
+  // Use average hip→knee distance from calibration to set a relative threshold;
+  // approximated via shoulder width (no hip-knee baseline captured)
+  const liftThreshold = baseline.imageShoulderWidth0 * RUN_LIFT_THRESHOLD_FACTOR * 25;
+  // Naive baseline: use the OLDEST knee y in the buffer as resting position
+  // (a knee at rest holds a near-constant y; lifted knees drop the y value).
+  const lkneePrev = prev.imageLandmarks[PoseIdx.LEFT_KNEE];
+  const rkneePrev = prev.imageLandmarks[PoseIdx.RIGHT_KNEE];
+  // Knee LIFTS if image y *decreases* (knee moves up in frame) by > threshold
+  if (lkneePrev.y - lknee.y > liftThreshold) {
+    pushLift(state.recentLeftLifts, now);
+  }
+  if (rkneePrev.y - rknee.y > liftThreshold) {
+    pushLift(state.recentRightLifts, now);
+  }
+  // Prune old lifts
+  pruneLifts(state.recentLeftLifts, now);
+  pruneLifts(state.recentRightLifts, now);
+
+  // Cadence: count lifts in the last RUN_WINDOW_MS
+  const totalLifts = state.recentLeftLifts.length + state.recentRightLifts.length;
+  const liftsPerSec = totalLifts / (RUN_WINDOW_MS / 1000);
+  // Need ALTERNATING left/right (not just one leg twitching). Alternation score
+  // is high when both legs have ~equal lift counts.
+  const minSide = Math.min(state.recentLeftLifts.length, state.recentRightLifts.length);
+  const maxSide = Math.max(state.recentLeftLifts.length, state.recentRightLifts.length);
+  const alternation = maxSide > 0 ? minSide / maxSide : 0;
+  const rawConf = Math.min(1, liftsPerSec / 3.0) * alternation;
+
+  // Smooth
+  if (rawConf > state.runConfidence) {
+    state.runConfidence = rawConf; // rise fast
+  } else {
+    state.runConfidence = state.runConfidence * RUN_CONFIDENCE_DECAY;
+  }
+}
+
+function pushLift(arr: number[], now: number) {
+  // Debounce: don't double-count lifts within 150ms
+  if (arr.length && now - arr[arr.length - 1] < 150) return;
+  arr.push(now);
+}
+function pruneLifts(arr: number[], now: number) {
+  while (arr.length && arr[0] < now - RUN_WINDOW_MS) arr.shift();
+}
+
+function maybeEmitRun(state: DetectorState, now: number): ActionEvent | null {
+  const last = state.lastFireMs.RUN ?? 0;
+  if (now - last < RUN_EMIT_INTERVAL_MS) return null;
+  state.lastFireMs.RUN = now;
+  return {
+    type: 'RUN',
+    timestamp: now,
+    confidence: state.runConfidence,
+    meta: { conf: round(state.runConfidence, 2) },
+  };
 }
 
 // =============================================================================

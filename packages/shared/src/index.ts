@@ -15,6 +15,7 @@ export type ActionType =
   | 'PUNCH_LEFT'
   | 'PUNCH_RIGHT'
   | 'STANCE_MATCH'
+  | 'RUN'    // continuous: meta.confidence 0-1, throttled to ~5 Hz
   | 'IDLE';
 
 export interface ActionEvent {
@@ -262,7 +263,9 @@ export const PoseIdx = {
 // =============================================================================
 
 export interface Baseline {
-  /** y of hip midpoint when standing neutral, in world meters (y-up) */
+  /** y of hip midpoint when standing neutral, in world meters (y-up).
+   *  NOTE: MediaPipe world coords anchor hip-mid at origin so this is ~0.
+   *  Use image-space values below for vertical motion detection. */
   hipY0: number;
   headY0: number;
   shoulderMidX0: number;
@@ -274,6 +277,15 @@ export interface Baseline {
   bodyScale: number;
   /** ms since epoch, for staleness check */
   capturedAt: number;
+  // ---- Image-space baselines (normalized 0..1 of frame; y is top-down) ----
+  /** hip-midpoint y in image space; jumping makes it smaller, ducking larger */
+  imageHipY0: number;
+  /** nose y in image space; correlates with hip but more robust if camera framing crops legs */
+  imageHeadY0: number;
+  /** shoulder midpoint x in image space; lateral leans show up here */
+  imageShoulderMidX0: number;
+  /** shoulder-to-shoulder pixel width in image space (0..1); used to scale thresholds for distance */
+  imageShoulderWidth0: number;
 }
 
 // =============================================================================

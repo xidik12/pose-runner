@@ -294,6 +294,17 @@ function handleDisconnect(client: Client, room: Room) {
 
 function handleMessage(client: Client, room: Room, msg: RoomMessage) {
   room.lastActivityAt = Date.now();
+  // Verbose debug log for every non-ping/pong message
+  if (msg.kind !== 'ping' && msg.kind !== 'pong') {
+    const tvCount = room.tvs.size;
+    const summary = msg.kind === 'action'
+      ? `${msg.event.type}${msg.event.meta ? ' ' + JSON.stringify(msg.event.meta) : ''}`
+      : msg.kind === 'set-calibrated' ? `calibrated=${msg.calibrated}`
+      : msg.kind === 'set-ready' ? `ready=${msg.ready}`
+      : msg.kind === 'game-event' ? `${msg.event.type}`
+      : '';
+    log(`[${room.id}] ${client.role}@${client.slot ?? '-'} → ${msg.kind} ${summary} (tvs=${tvCount})`);
+  }
 
   switch (msg.kind) {
     case 'action':

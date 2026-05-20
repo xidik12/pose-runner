@@ -1,13 +1,12 @@
 // Controller PWA entry point.
-// Orchestrates: camera → worker → detector pipeline → WS → broker.
-import type { ActionEvent, PoseSnapshot, PlayerSlot, StanceDefinition } from '@pose-runner/shared';
-import { randomRoomCode } from '@pose-runner/shared';
+// Orchestrates: camera → main-thread MediaPipe → detector pipeline → WS → broker.
+import type { ActionEvent, PoseSnapshot, PlayerSlot } from '@pose-runner/shared';
+import { randomRoomCode, PoseIdx } from '@pose-runner/shared';
 import { tick, newPipeline, CalibrationCapture } from './detect/index';
 import { PoseClient } from './pose/poseClient';
 import { BrokerClient } from './net/ws';
 import { resizeOverlay, drawSkeleton, clearOverlay } from './ui/overlay';
 import { BROKER_URL } from './config';
-import stancesData from '../../shared/src/data/stances.json';
 
 // ---------------------------------------------------------------------------
 // DOM
@@ -25,6 +24,14 @@ const btnReady = document.getElementById('btn-ready') as HTMLButtonElement;
 const lastActionEl = document.getElementById('last-action') as HTMLDivElement;
 const toast = document.getElementById('toast') as HTMLDivElement;
 
+// Debug HUD
+const dbgVis = document.getElementById('dbg-vis') as HTMLSpanElement;
+const dbgHip = document.getElementById('dbg-hip') as HTMLSpanElement;
+const dbgShoulder = document.getElementById('dbg-shoulder') as HTMLSpanElement;
+const dbgAnkle = document.getElementById('dbg-ankle') as HTMLSpanElement;
+const dbgActions = document.getElementById('dbg-actions') as HTMLDivElement;
+const recentActions: string[] = [];
+
 // ---------------------------------------------------------------------------
 // Room code: read from ?room=... or generate one
 // ---------------------------------------------------------------------------
@@ -38,8 +45,7 @@ history.replaceState(null, '', `?room=${roomCode}`);
 // State
 // ---------------------------------------------------------------------------
 
-const stances = (stancesData as { stances: StanceDefinition[] }).stances;
-const pipeline = newPipeline(stances);
+const pipeline = newPipeline();
 let calib = new CalibrationCapture();
 let calibrating = false;
 let calibrated = false;
@@ -147,11 +153,58 @@ function handleSnapshot(snap: PoseSnapshot, inferenceMs: number) {
     return;
   }
 
+  // Live pose-signal debug HUD (so the player can see what the camera sees)
+  updateDebugHud(snap);
+
   // Run detectors
   const events = tick(pipeline, snap);
   for (const ev of events) {
     sendAction(ev);
   }
+}
+
+function updateDebugHud(snap: PoseSnapshot) {
+  const v = snap.avgVisibility;
+  dbgVis.textContent = v.toFixed(2);
+  dbgVis.className = v > 0.7 ? 'ok' : v > 0.4 ? 'warn' : 'err';
+
+  const lh = snap.landmarks[PoseIdx.LEFT_HIP];
+  const rh = snap.landmarks[PoseIdx.RIGHT_HIP];
+  const ls = snap.landmarks[PoseIdx.LEFT_SHOULDER];
+  const rs = snap.landmarks[PoseIdx.RIGHT_SHOULDER];
+  const la = snap.landmarks[PoseIdx.LEFT_ANKLE];
+  const ra = snap.landmarks[PoseIdx.RIGHT_ANKLE];
+  const hipY = (lh.y + rh.y) / 2;
+  const shoulderX = (ls.x + rs.x) / 2;
+  const ankleVis = Math.max(la.visibility, ra.visibility);
+
+  // Image-space deltas (where vertical body motion actually shows up)
+  const ilh = snap.imageLandmarks[PoseIdx.LEFT_HIP];
+  const irh = snap.imageLandmarks[PoseIdx.RIGHT_HIP];
+  const ils = snap.imageLandmarks[PoseIdx.LEFT_SHOULDER];
+  const irs = snap.imageLandmarks[PoseIdx.RIGHT_SHOULDER];
+  const iHipY = (ilh.y + irh.y) / 2;
+  const iShoulderX = (ils.x + irs.x) / 2;
+
+  if (pipeline.baseline) {
+    // jump = iHipY drops below baseline (image y is top-down)
+    const dHipImg = pipeline.baseline.imageHipY0 - iHipY;  // positive = jumped up
+    const dShoulderImg = iShoulderX - pipeline.baseline.imageShoulderMidX0;
+    dbgHip.textContent = (dHipImg > 0 ? '+' : '') + dHipImg.toFixed(3);
+    dbgHip.className = Math.abs(dHipImg) > 0.06 ? 'ok' : Math.abs(dHipImg) > 0.03 ? 'warn' : 'muted';
+    dbgShoulder.textContent = (dShoulderImg > 0 ? '+' : '') + dShoulderImg.toFixed(3);
+    dbgShoulder.className = Math.abs(dShoulderImg) > 0.05 ? 'ok' : Math.abs(dShoulderImg) > 0.025 ? 'warn' : 'muted';
+  } else {
+    dbgHip.textContent = '— (calibrate first)';
+    dbgHip.className = 'muted';
+    dbgShoulder.textContent = '—';
+    dbgShoulder.className = 'muted';
+  }
+  // suppress unused-var warnings for the (unused) world hip/shoulder values
+  void hipY; void shoulderX;
+
+  dbgAnkle.textContent = ankleVis.toFixed(2);
+  dbgAnkle.className = ankleVis > 0.5 ? 'ok' : ankleVis > 0.2 ? 'warn' : 'err';
 }
 
 function sendAction(ev: ActionEvent) {
@@ -160,6 +213,10 @@ function sendAction(ev: ActionEvent) {
   if (ev.type !== 'IDLE') {
     const meta = ev.meta ? ' ' + JSON.stringify(ev.meta) : '';
     lastActionEl.textContent = `${ev.type}${meta}`;
+    // recent actions list (last 5)
+    recentActions.unshift(`${ev.type}`);
+    if (recentActions.length > 5) recentActions.length = 5;
+    dbgActions.textContent = recentActions.join(' · ');
   }
 }
 

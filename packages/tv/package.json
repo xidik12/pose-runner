@@ -10,13 +10,14 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "phaser": "^3.85.0",
+    "three": "^0.169.0",
     "qrcode": "^1.5.4",
     "@pose-runner/shared": "workspace:*"
   },
   "devDependencies": {
     "vite": "^5.4.0",
     "@vitejs/plugin-basic-ssl": "^1.2.0",
+    "@types/three": "^0.169.0",
     "@types/qrcode": "^1.5.5",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"

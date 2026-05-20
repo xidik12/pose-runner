@@ -13,14 +13,23 @@
       html, body { margin: 0; padding: 0; background: #0a0d14; color: #e8eaf0; font-family: system-ui, -apple-system, sans-serif; overscroll-behavior: none; }
       body { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
       #stage { position: relative; flex: 1; overflow: hidden; }
-      #video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); background: #000; }
-      #overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; transform: scaleX(-1); }
+      /* Back camera = no mirror */
+      #video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #000; }
+      #overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
       #hud { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; font-size: 12px; pointer-events: none; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
       #status { padding: 6px 10px; border-radius: 999px; background: rgba(0,0,0,0.55); }
       #status.ok { background: rgba(30, 110, 60, 0.7); }
       #status.warn { background: rgba(170, 90, 20, 0.7); }
       #status.err { background: rgba(170, 30, 30, 0.8); }
       #fps { padding: 6px 10px; border-radius: 999px; background: rgba(0,0,0,0.55); font-variant-numeric: tabular-nums; }
+      /* live pose-signal panel — bottom-left of stage */
+      #debug { position: absolute; left: 10px; bottom: 10px; right: 10px; padding: 8px 10px; border-radius: 12px; background: rgba(0,0,0,0.65); font-family: ui-monospace, monospace; font-size: 11px; line-height: 1.5; pointer-events: none; }
+      #debug .row { display: flex; justify-content: space-between; }
+      #debug .ok { color: #4dd185; }
+      #debug .warn { color: #ffd24a; }
+      #debug .err { color: #ff8060; }
+      #debug .muted { color: #8090a8; }
+      #debug .actions { margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.15); color: #5dd6ff; font-weight: 700; }
       #panel { padding: 16px; display: flex; flex-direction: column; gap: 12px; background: #0c1320; border-top: 1px solid #1a2235; }
       #room { font-family: ui-monospace, monospace; letter-spacing: 0.15em; font-size: 18px; }
       .row { display: flex; align-items: center; gap: 12px; }
@@ -29,7 +38,7 @@
       .btn.secondary { background: #2a3247; color: #e8eaf0; }
       .btn.ready { background: #4dd185; }
       #last-action { font-family: ui-monospace, monospace; font-size: 12px; color: #92a0bd; min-height: 18px; }
-      #toast { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); padding: 10px 14px; background: rgba(0,0,0,0.75); border-radius: 12px; font-size: 13px; transition: opacity 0.25s; pointer-events: none; }
+      #toast { position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); padding: 10px 14px; background: rgba(0,0,0,0.75); border-radius: 12px; font-size: 13px; transition: opacity 0.25s; pointer-events: none; }
       #toast.hidden { opacity: 0; }
       #calib-msg { font-size: 14px; color: #c8d3e8; }
     </style>
@@ -41,6 +50,13 @@
       <div id="hud">
         <div id="status">starting…</div>
         <div id="fps">--</div>
+      </div>
+      <div id="debug">
+        <div class="row"><span>vis</span><span id="dbg-vis" class="muted">—</span></div>
+        <div class="row"><span>hip Δy</span><span id="dbg-hip" class="muted">—</span></div>
+        <div class="row"><span>shoulder Δx</span><span id="dbg-shoulder" class="muted">—</span></div>
+        <div class="row"><span>ankle vis</span><span id="dbg-ankle" class="muted">—</span></div>
+        <div class="actions" id="dbg-actions">no actions yet</div>
       </div>
       <div id="toast" class="hidden"></div>
     </div>
